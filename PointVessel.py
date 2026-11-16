@@ -33,7 +33,7 @@ class PointVessel(Dataset):
         self.node_fps = cfg['node_fps']
         self.varieties = cfg['varieties']
         self.debug_vis = cfg['debug_vis']
-        self.dataset_norm = False
+        self.dataset_norm = cfg['dataset_norm']
         self.multiply_data = cfg['multiply_data']
         self.overfit = cfg['overfit']
 
@@ -54,20 +54,28 @@ class PointVessel(Dataset):
         print('The size of %s data is %d'%(self.split,self.nr_data))
 
     def compute_variety_max_xy_extent(self):
-        # compute extents for x and y for each variety
-        variety_max_xy_extent = {}
-        print("Computing variety max xy extent", self.points_datapath[0])
+        # # compute extents for x and y for each variety
+        # variety_max_xy_extent = {}
+
+        overall_max_extent = 0
+
+        print("Computing max xy extent", self.points_datapath[0])
         for tree in tqdm(self.points_datapath):
             raw_data = torch.load(tree, weights_only=False)
             scan_points = raw_data['scan_points']
             scan_points -= np.mean(scan_points, axis=0)
-            variety = [v for v in self.varieties if v in tree][0]
-            if variety not in variety_max_xy_extent:
-                variety_max_xy_extent[variety] = 0
+            # variety = [v for v in self.varieties if v in tree][0]
+            # if variety not in variety_max_xy_extent:
+            #     variety_max_xy_extent[variety] = 0
+        #     max_xy_extent = np.max(np.abs(scan_points[:,:2])) 
+        #     if max_xy_extent > variety_max_xy_extent[variety]:
+        #         variety_max_xy_extent[variety] = max_xy_extent
+
             max_xy_extent = np.max(np.abs(scan_points[:,:2])) 
-            if max_xy_extent > variety_max_xy_extent[variety]:
-                variety_max_xy_extent[variety] = max_xy_extent
-        return variety_max_xy_extent
+            if max_xy_extent > overall_max_extent:
+                overall_max_extent = max_xy_extent
+
+        return {"Vessel": overall_max_extent}
 
     def center_and_normalize_data(self, data, filename, normalize=False):
         # move cloud xy around origin, z to 0
@@ -75,7 +83,8 @@ class PointVessel(Dataset):
         cloud_offset[2] = np.min(data['scan_points'][:,2]).astype(np.float32)
         
         if normalize:
-            max_val = self.variety_max_xy_extent[[v for v in self.varieties if v in filename][0]]
+            # max_val = self.variety_max_xy_extent[[v for v in self.varieties if v in filename][0]]
+            max_val = self.variety_max_xy_extent["Vessel"]
         else:
             max_val = 1.0
         data['scan_points'] = (data['scan_points'] - cloud_offset) / max_val
@@ -144,8 +153,8 @@ class PointVessel(Dataset):
         #     skel_augm_variation = num_skel_nodes*0.15
         #     num_skel_nodes += np.random.randint(-skel_augm_variation, skel_augm_variation)
             
-        if num_skel_nodes > len(highres_gt_skeleton_nodes):
-            num_skel_nodes = len(highres_gt_skeleton_nodes)
+        # if num_skel_nodes > len(highres_gt_skeleton_nodes):
+        #     num_skel_nodes = len(highres_gt_skeleton_nodes)
 
         # the actual skeleton points and, by extension, the parent nodes are only used for training
         # skeleton_points, node_parent_ids, _ = self.downsample_ls(highres_gt_skeleton_nodes, skeleton_edges, num_skel_nodes, fps=self.node_fps)
@@ -170,13 +179,13 @@ class PointVessel(Dataset):
         # so pass a dummy of the same size instead
         # the size is the number of (skeleton nodes/vertices, 3) where 3 is because each point is in 3d
         # skeleton_points = torch.tensor(skeleton_points, dtype=torch.float32)
-        skeleton_points = torch.tensor(np.zeros((len(highres_gt_skeleton_nodes), 3)), dtype=torch.float32)
+        skeleton_points = torch.tensor(np.zeros((num_skel_nodes, 3)), dtype=torch.float32) # dummy (so that inference takes the length but no values are needed)
         scan_points = torch.tensor(scan_points, dtype=torch.float32)
         highres_gt_skeleton_nodes = torch.tensor(highres_gt_skeleton_nodes, dtype=torch.float32)
 
         # similar to the skeleton points, the parent node ids are only used if the skeleton is given, but inference does not require a skeleton
         # however, we pass a dummy of the same shape that it would expect in case it fails for a missing value
-        node_parent_ids = torch.tensor(np.zeros(len(highres_gt_skeleton_nodes)), dtype=torch.float32)
+        node_parent_ids = torch.tensor(np.zeros(num_skel_nodes), dtype=torch.float32)
         
         # if self.debug_vis:
         #     print("tree", self.points_datapath[index], "skeleton_points", skeleton_points.shape, "scan_points", scan_points.shape, "orig_points", raw_data['scan_points'].shape,"highres_gt_skeleton_nodes", highres_gt_skeleton_nodes.shape)  
