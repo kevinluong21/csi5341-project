@@ -42,7 +42,8 @@ def main(model: str):
         demo_tree = torch.load("../Datasets/demo/test/lane1_tree_13_24_07_25_lane1.pt", weights_only=False)
         rescale = True # their config files do not have normalization on which can affect the scale of trees, so the point vessel has to be rescaled
     elif model == "synthetictree":
-        demo_tree = torch.load("", weights_only=False)
+        pcd = np.load("../Datasets/demo/test/apple_1.npz")
+        demo_tree = {"scan_points": pcd}
         rescale = True # their config files do not have normalization on which can affect the scale of trees, so the point vessel has to be rescaled
     else:
         # for treenet3d, use the merge point cloud which includes both the leaves and the branches as a point cloud
@@ -100,7 +101,7 @@ def main(model: str):
                     skeleton_scaled = (skeleton["nodes"] - pcl_min) * s
                 else:
                     pcl_scaled = point_cloud
-                    skeleton_scaled = skeleton
+                    skeleton_scaled = skeleton["nodes"]
 
                 # skeleton contains 2 keys: nodes and adj (adjacency matrix which stores all the edges)
                 data = {
@@ -123,7 +124,6 @@ def main(model: str):
         config["data"]["data_dir"] = f"Datasets/PointVesselDiffTS{model.capitalize()}"
         config["data"]["dataloader"] = "PointVessel"
         config["data"]["varieties"] = ["Vessel"]
-        config["data"]["num_nodes"] = 3000 # default number of nodes (and the same number used in the paper for the orchard dataset)
 
         with open("../pretrained_models/point_vessel_orchard.yaml", "w", encoding="utf-8") as file:
             yaml.dump(config, file)
@@ -140,7 +140,6 @@ def main(model: str):
         config["data"]["data_dir"] = f"Datasets/PointVesselDiffTS{model.capitalize()}"
         config["data"]["dataloader"] = "PointVessel"
         config["data"]["varieties"] = ["Vessel"]
-        config["data"]["num_nodes"] = 3000 # default number of nodes
 
         with open("../pretrained_models/point_vessel_syntree.yaml", "w", encoding="utf-8") as file:
             yaml.dump(config, file)
@@ -157,13 +156,13 @@ def main(model: str):
         config["data"]["data_dir"] = f"Datasets/PointVesselDiffTS{model.capitalize()}"
         config["data"]["dataloader"] = "PointVessel"
         config["data"]["varieties"] = ["Vessel"]
-        # the number of nodes is already defined in the original config file, so no need to overwrite
+        config["data"]["num_nodes"] = 3000 # the paper caps the num nodes to 3000 due to memory constraints
 
         with open("../pretrained_models/point_vessel_treenet.yaml", "w", encoding="utf-8") as file:
             yaml.dump(config, file)
 
-        scales = pd.DataFrame(scales)
-        scales.to_csv(f"../Datasets/PointVesselDiffTS{model.capitalize()}/point_vessel_treenet3d_scale_values.csv", index=False)
+        # scales = pd.DataFrame(scales)
+        # scales.to_csv(f"../Datasets/PointVesselDiffTS{model.capitalize()}/point_vessel_treenet3d_scale_values.csv", index=False)
 
 if __name__ == "__main__":
     main(auto_envvar_prefix='PLS')
