@@ -6,6 +6,7 @@ import pandas as pd
 from dataloading.point_vessel import VesselData
 import click
 import open3d as o3d
+from DiffTS.tree_utils.file import load_data_npz
 
 vessel_data = VesselData("datasets/PointVessel/dvn")
 
@@ -42,8 +43,8 @@ def main(model: str):
         demo_tree = torch.load("../Datasets/demo/test/lane1_tree_13_24_07_25_lane1.pt", weights_only=False)
         rescale = True # their config files do not have normalization on which can affect the scale of trees, so the point vessel has to be rescaled
     elif model == "synthetictree":
-        pcd = np.load("../Datasets/demo/test/apple_1.npz")
-        demo_tree = {"scan_points": pcd}
+        pcd, _ = load_data_npz("../Datasets/demo/test/apple_1.npz")
+        demo_tree = {"scan_points": pcd.xyz}
         rescale = True # their config files do not have normalization on which can affect the scale of trees, so the point vessel has to be rescaled
     else:
         # for treenet3d, use the merge point cloud which includes both the leaves and the branches as a point cloud
@@ -156,7 +157,8 @@ def main(model: str):
         config["data"]["data_dir"] = f"Datasets/PointVesselDiffTS{model.capitalize()}"
         config["data"]["dataloader"] = "PointVessel"
         config["data"]["varieties"] = ["Vessel"]
-        config["data"]["num_nodes"] = 3000 # the paper caps the num nodes to 3000 due to memory constraints
+        config["data"]["num_nodes"] = "auto" # the paper caps the num nodes to 3000 due to memory constraints but setting it to 3000 for vessels causes it to crash
+        # because the skeletons become empty
 
         with open("../pretrained_models/point_vessel_treenet.yaml", "w", encoding="utf-8") as file:
             yaml.dump(config, file)
